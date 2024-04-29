@@ -1,0 +1,17 @@
+{
+	"IsEncrypted": false,
+	"Values": {
+		"AzureWebJobsStorage": "UseDevelopmentStorage=true",
+		"FUNCTIONS_WORKER_RUNTIME": "node",
+		"AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+		"WEBSITE_RUN_FROM_PACKAGE": true,
+		"BLOB_STORAGE_ACCOUNT_NAME": "bein-tokens",
+		"BLOB_STORAGE_ACCOUNT_KEY": "x",
+		"KONTENT_AI_SOURCE_ENVIRONMENT_ID": "",
+		"KONTENT_AI_SOURCE_DELIVERY_KEY": "",
+		"KONTENT_AI_SOURCE_MAPI_KEY": "",
+		"KONTENT_AI_TARGET_ENVIRONMENT_ID": "",
+		"KONTENT_AI_TARGET_DELIVERY_KEY": "",
+		"KONTENT_AI_TARGET_DELIVERY_KEY": ""
+	}
+}
