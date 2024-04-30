@@ -1,6 +1,8 @@
 import {
 	ExportToolkit,
 	IExportAdapterResult,
+	ImportService,
+	ImportToolkit,
 	KontentAiExportAdapter,
 	Log
 } from '@kontent-ai-consulting/migration-toolkit';
@@ -21,11 +23,14 @@ export interface IKontentAiMigrationServiceConfig {
 	log: IConsoleLog;
 }
 
-export interface IKontentAiMigrateContentConfig {}
+export interface IKontentAiMigrateContentConfig {
+	contentTypeCodenameToExport: string;
+}
 
 export class KontentAiMigrationService {
 	private readonly migrationToolkitLog: Log = {
-		console: (data) => this.config.log.information(`${Colors.yellow(`Migration Log: `)} ${Colors.white(data.message)}`)
+		console: (data) =>
+			this.config.log.information(`${Colors.yellow(`Migration Log: `)} ${Colors.white(data.message)}`)
 	};
 
 	constructor(private config: IKontentAiMigrationServiceConfig) {}
@@ -44,6 +49,24 @@ export class KontentAiMigrationService {
 		const exportData = await this.getExportDataAsync(config);
 		console.log('items: ', exportData.items.length);
 		console.log('assets: ', exportData.assets.length);
+
+		await this.importDataAsync(config, exportData);
+	}
+
+	private async importDataAsync(config: IKontentAiMigrateContentConfig, data: IExportAdapterResult): Promise<void> {
+		const importToolkit = new ImportToolkit({
+			log: this.migrationToolkitLog,
+			environmentId: this.config.targetEnvironmentId,
+			managementApiKey: this.config.targetMapiKey,
+			skipFailedItems: false,
+			sourceType: 'file',
+			canImport: {
+				asset: (item) => true,
+				contentItem: (item) => true
+			}
+		});
+
+		await importToolkit.importAsync(data);
 	}
 
 	private async getExportDataAsync(config: IKontentAiMigrateContentConfig): Promise<IExportAdapterResult> {
@@ -52,10 +75,10 @@ export class KontentAiMigrationService {
 			managementApiKey: this.config.sourceMapiKey,
 			isPreview: false,
 			isSecure: false,
-			// optional filter to customize what items are exported
+			// customize what items are exported
 			customItemsExport: async (client) => {
 				// return only the items you want to export by applying filters, parameters etc..
-				const response = await client.items().toAllPromise();
+				const response = await client.items().type(config.contentTypeCodenameToExport).toAllPromise();
 				return response.data.items;
 			},
 			log: this.migrationToolkitLog

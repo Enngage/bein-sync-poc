@@ -4,6 +4,8 @@ import { KontentAiMigrationService } from '../../../lib/services/kontent-ai-migr
 import { getConsoleLog } from '../../../lib/helpers/log-helper.js';
 import { executeHttpFunctionAsync } from '../../../lib/helpers/function-execution-helper.js';
 
+const contentTypeQueryParam: string = 'contentType';
+
 app.http('MigrateContent', {
 	methods: ['GET'],
 	authLevel: 'anonymous',
@@ -11,6 +13,12 @@ app.http('MigrateContent', {
 		const consoleLog = getConsoleLog(context);
 
 		return await executeHttpFunctionAsync(async () => {
+			const contentTypeToExport: string | null = request.query.get(contentTypeQueryParam);
+
+			if (!contentTypeToExport) {
+				throw Error(`Missing '${contentTypeQueryParam}' query param`);
+			}
+
 			const syncService = new KontentAiMigrationService({
 				// storage
 				accountName: environmentHelper.getRequiredValue('BLOB_STORAGE_ACCOUNT_NAME'),
@@ -27,7 +35,9 @@ app.http('MigrateContent', {
 				log: consoleLog
 			});
 
-			await syncService.migrateContentAsync({});
+			await syncService.migrateContentAsync({
+				contentTypeCodenameToExport: contentTypeToExport
+			});
 
 			return {
 				jsonBody: { result: 'success' }
