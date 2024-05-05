@@ -26,7 +26,8 @@ export interface IKontentAiMigrationServiceConfig {
 }
 
 export interface IKontentAiMigrateContentConfig {
-	contentTypeCodenameToExport: string;
+	contentTypeCodenameToExport?: string;
+	limit?: number;
 }
 
 export class KontentAiMigrationService {
@@ -72,20 +73,28 @@ export class KontentAiMigrationService {
 	}
 
 	private async getExportDataAsync(config: IKontentAiMigrateContentConfig): Promise<IExportAdapterResult> {
-
 		const deliveryClient = createDeliveryClient({
-			environmentId: this.config.sourceEnvironmentId,
-
+			environmentId: this.config.sourceEnvironmentId
 		});
 
-		const itemsToExport = await deliveryClient.itemsFeed().type(config.contentTypeCodenameToExport).toAllPromise();
+		let query = deliveryClient.itemsFeed().orderByDescending('system.last_modified');
 
-		const exportItems: IKontentAiExportRequestItem[] = itemsToExport.data.items.map(m => {
+		if (config.contentTypeCodenameToExport) {
+			query = query.type(config.contentTypeCodenameToExport);
+		}
+
+		if (config.limit) {
+			query = query.limitParameter(config.limit);
+		}
+
+		const itemsToExport = await query.toAllPromise();
+
+		const exportItems: IKontentAiExportRequestItem[] = itemsToExport.data.items.map((m) => {
 			return {
 				itemCodename: m.system.codename,
 				languageCodename: m.system.language
-			}
-		})
+			};
+		});
 
 		const adapter = new KontentAiExportAdapter({
 			environmentId: this.config.sourceEnvironmentId,

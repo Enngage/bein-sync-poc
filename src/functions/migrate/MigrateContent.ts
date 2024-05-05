@@ -1,4 +1,4 @@
-import { app} from '@azure/functions';
+import { app } from '@azure/functions';
 import { environmentHelper } from '../../../lib/helpers/environment-helper.js';
 import { KontentAiMigrationService } from '../../../lib/services/kontent-ai-migration/index.js';
 import { getConsoleLog } from '../../../lib/helpers/log-helper.js';
@@ -13,11 +13,8 @@ app.http('MigrateContent', {
 		const consoleLog = getConsoleLog(context);
 
 		return await executeHttpFunctionAsync(async () => {
-			const contentTypeToExport: string | null = request.query.get(contentTypeQueryParam);
-
-			if (!contentTypeToExport) {
-				throw Error(`Missing '${contentTypeQueryParam}' query param`);
-			}
+			const contentTypeToExport: string | undefined = request.query.get(contentTypeQueryParam) ?? undefined;
+			const limit: string | undefined = request.query.get(contentTypeQueryParam) ?? undefined;
 
 			const syncService = new KontentAiMigrationService({
 				// storage
@@ -36,7 +33,8 @@ app.http('MigrateContent', {
 			});
 
 			await syncService.migrateContentAsync({
-				contentTypeCodenameToExport: contentTypeToExport
+				contentTypeCodenameToExport: contentTypeToExport,
+				limit: limit ? +limit : undefined
 			});
 
 			return {
