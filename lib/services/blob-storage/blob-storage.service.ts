@@ -1,5 +1,5 @@
 import { BlobServiceClient, ContainerClient, StorageSharedKeyCredential } from '@azure/storage-blob';
-import { IConsoleLog, LearnPortalProjectType } from '../../models/common/common.models.js';
+import { IConsoleLog } from '../../models/common/common.models.js';
 
 export interface IBlobStorageUploadResponse {
 	absoluteUrl: string;
@@ -12,8 +12,19 @@ export interface IBlobStorageServiceConfig {
 	accountKey: string;
 }
 
-export type ContinuationTokenType = 'newContentAvailable';
-export type BlobStorageContainer = 'sync-tokens' | 'migration-logs';
+export interface ILogsRecord {
+	date: Date;
+	overview: {
+		migratedItemsCount: number;
+		migratedAssetsCount: number;
+	};
+	items: { name: string; codename: string; language: string }[];
+	assets: { codename: string; filename: string }[];
+}
+
+export type OverviewLogRecord = Omit<ILogsRecord, 'items' | 'assets'>;
+
+export type BlobStorageContainer = 'migration-logs';
 
 export class BlobStorageService {
 	private readonly serviceClient: BlobServiceClient;
@@ -25,28 +36,40 @@ export class BlobStorageService {
 		);
 	}
 
-	async storeContinuationTokenAsync(data: {
-		token: string;
-		tokenType: ContinuationTokenType;
-		projectType: LearnPortalProjectType;
-		projectId: string;
-	}): Promise<IBlobStorageUploadResponse> {
-		const filename: string = this.getContinuationTokenFilename(data.projectType, data.tokenType, data.projectId);
+	async storeOverviewLogFileAsync(data: { record: ILogsRecord }): Promise<IBlobStorageUploadResponse> {
+		const filename: string = this.getOverviewLogFilename();
+		const recordToStore: OverviewLogRecord = {
+			date: data.record.date,
+			overview: data.record.overview
+		};
+		const records: OverviewLogRecord[] = [recordToStore];
+
+		const existingFile = await this.fetchOverviewLogFileAsync();
+
+		if (existingFile) {
+			records.push(...JSON.parse(existingFile));
+		}
 
 		return await this.storeFileAsync({
-			content: data.token,
+			content: JSON.stringify(records),
 			filename: filename,
-			containerName: 'sync-tokens'
+			containerName: 'migration-logs'
 		});
 	}
 
-	async fetchContinuationTokenAsync(
-		tokenType: ContinuationTokenType,
-		projectType: LearnPortalProjectType,
-		projectId: string
-	): Promise<string | undefined> {
-		const filename: string = this.getContinuationTokenFilename(projectType, tokenType, projectId);
-		return await this.fetchFileAsync('sync-tokens', filename);
+	async storeLogFileAsync(data: { record: ILogsRecord }): Promise<IBlobStorageUploadResponse> {
+		const filename: string = this.getLogFilename(data.record.date);
+
+		return await this.storeFileAsync({
+			content: JSON.stringify(data.record),
+			filename: filename,
+			containerName: 'migration-logs'
+		});
+	}
+
+	async fetchOverviewLogFileAsync(): Promise<string | undefined> {
+		const filename: string = this.getOverviewLogFilename();
+		return await this.fetchFileAsync('migration-logs', filename);
 	}
 
 	private async storeFileAsync(data: {
@@ -57,7 +80,7 @@ export class BlobStorageService {
 		const containerClient = await this.getContainerClientAsync(data.containerName);
 		const blockBlobClient = containerClient.getBlockBlobClient(data.filename);
 
-		this.config.log.information(`Uploading '${data.filename}' with content '${data.content}'`);
+		this.config.log.information(`Uploading '${data.filename}'`);
 		await blockBlobClient.upload(data.content, data.content.length);
 		this.config.log.information(`Upload successful`);
 
@@ -81,7 +104,7 @@ export class BlobStorageService {
 		const downloadBlockBlobResponse = await blockBlobClient.download();
 		const content: string = (await this.streamToBuffer(downloadBlockBlobResponse.readableStreamBody)).toString();
 
-		this.config.log.information(`Download successful. Content: '${content}'`);
+		this.config.log.information(`Download successful.`);
 
 		return content;
 	}
@@ -93,12 +116,12 @@ export class BlobStorageService {
 		return containerClient;
 	}
 
-	private getContinuationTokenFilename(
-		projectType: LearnPortalProjectType,
-		tokenType: ContinuationTokenType,
-		projectId: string
-	): string {
-		return `x-continuation-token-${projectType}-${tokenType}-${projectId}.txt`;
+	private getOverviewLogFilename(): string {
+		return `logs.json`;
+	}
+
+	private getLogFilename(date: Date): string {
+		return `${date.getUTCFullYear()}-${date.getUTCMonth()}-${date.getUTCDay()}-${date.getUTCHours()}-${date.getUTCMinutes()}-${date.getUTCSeconds()}.json`;
 	}
 
 	// [Node.js only] A helper method used to read a Node.js readable stream into a Buffer

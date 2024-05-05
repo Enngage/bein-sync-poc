@@ -10,6 +10,9 @@
 		"test": "echo \"No tests yet...\""
 	},
 	"type": "module",
+	"engines": {
+		"node": ">=18"
+	},
 	"dependencies": {},
 	"devDependencies": {
 		"@azure/functions": "4.4.0",

@@ -5,6 +5,7 @@ import { getConsoleLog } from '../../../lib/helpers/log-helper.js';
 import { executeHttpFunctionAsync } from '../../../lib/helpers/function-execution-helper.js';
 
 const contentTypeQueryParam: string = 'contentType';
+const limitQueryParam: string = 'limit';
 
 app.http('MigrateContent', {
 	methods: ['GET'],
@@ -14,7 +15,7 @@ app.http('MigrateContent', {
 
 		return await executeHttpFunctionAsync(async () => {
 			const contentTypeToExport: string | undefined = request.query.get(contentTypeQueryParam) ?? undefined;
-			const limit: string | undefined = request.query.get(contentTypeQueryParam) ?? undefined;
+			const limit: string | undefined = request.query.get(limitQueryParam) ?? undefined;
 
 			const syncService = new KontentAiMigrationService({
 				// storage
@@ -32,13 +33,20 @@ app.http('MigrateContent', {
 				log: consoleLog
 			});
 
-			await syncService.migrateContentAsync({
+			const migrationResult = await syncService.migrateContentAsync({
 				contentTypeCodenameToExport: contentTypeToExport,
 				limit: limit ? +limit : undefined
 			});
 
 			return {
-				jsonBody: { result: 'success' }
+				jsonBody: {
+					result: 'success',
+					overviewLogFile: migrationResult.overviewLogFileUrl,
+					logFile: migrationResult.logFileUrl,
+					data: {
+						...migrationResult.logRecord
+					}
+				}
 			};
 		}, consoleLog);
 	}

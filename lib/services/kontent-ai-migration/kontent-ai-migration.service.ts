@@ -1,15 +1,13 @@
 import {
-	ExportToolkit,
 	IExportAdapterResult,
 	IKontentAiExportRequestItem,
-	ImportService,
 	ImportToolkit,
 	KontentAiExportAdapter,
 	Log
 } from '@kontent-ai-consulting/migration-toolkit';
 import Colors from 'colors';
 import { IConsoleLog } from '../../models/common/common.models.js';
-import { BlobStorageService } from '../blob-storage/index.js';
+import { BlobStorageService, ILogsRecord } from '../blob-storage/index.js';
 import { createDeliveryClient } from '@kontent-ai/delivery-sdk';
 
 export interface IKontentAiMigrationServiceConfig {
@@ -25,12 +23,19 @@ export interface IKontentAiMigrationServiceConfig {
 	log: IConsoleLog;
 }
 
+export interface IKontentAiMigrationResult {
+	logRecord: ILogsRecord;
+	overviewLogFileUrl: string;
+	logFileUrl: string;
+}
+
 export interface IKontentAiMigrateContentConfig {
 	contentTypeCodenameToExport?: string;
 	limit?: number;
 }
 
 export class KontentAiMigrationService {
+	private readonly deliveryItemsLimit: number = 2000;
 	private readonly migrationToolkitLog: Log = {
 		console: (data) =>
 			this.config.log.information(`${Colors.yellow(`Migration Log: `)} ${Colors.white(data.message)}`)
@@ -38,7 +43,7 @@ export class KontentAiMigrationService {
 
 	constructor(private config: IKontentAiMigrationServiceConfig) {}
 
-	async migrateContentAsync(config: IKontentAiMigrateContentConfig): Promise<void> {
+	async migrateContentAsync(config: IKontentAiMigrateContentConfig): Promise<IKontentAiMigrationResult> {
 		this.config.log.information(`Kontent ai project: ${this.config.sourceEnvironmentId}`);
 		this.config.log.information(`Using preview: ${this.config.usePreview}`);
 		this.config.log.information(`Blob account: ${this.config.accountName}`);
@@ -50,13 +55,47 @@ export class KontentAiMigrationService {
 		});
 
 		const exportData = await this.getExportDataAsync(config);
-		console.log('items: ', exportData.items.length);
-		console.log('assets: ', exportData.assets.length);
 
-		await this.importDataAsync(config, exportData);
+		const logsRecord: ILogsRecord = {
+			date: new Date(),
+			overview: {
+				migratedItemsCount: exportData.items.length,
+				migratedAssetsCount: exportData.assets.length
+			},
+			items: exportData.items.map((m) => {
+				return {
+					name: m.system.name,
+					codename: m.system.codename,
+					language: m.system.language
+				};
+			}),
+			assets: exportData.assets.map((m) => {
+				return {
+					codename: m.codename ?? 'n/a',
+					filename: m.filename
+				};
+			})
+		};
+
+		this.config.log.information(`Storing logs record in blob storage`);
+
+		const overviewLogFile = await blobStorageService.storeOverviewLogFileAsync({
+			record: logsRecord
+		});
+		const logFile = await blobStorageService.storeLogFileAsync({
+			record: logsRecord
+		});
+
+		await this.importDataAsync(exportData);
+
+		return {
+			logRecord: logsRecord,
+			overviewLogFileUrl: overviewLogFile.absoluteUrl,
+			logFileUrl: logFile.absoluteUrl
+		};
 	}
 
-	private async importDataAsync(config: IKontentAiMigrateContentConfig, data: IExportAdapterResult): Promise<void> {
+	private async importDataAsync(data: IExportAdapterResult): Promise<void> {
 		const importToolkit = new ImportToolkit({
 			log: this.migrationToolkitLog,
 			environmentId: this.config.targetEnvironmentId,
@@ -77,17 +116,25 @@ export class KontentAiMigrationService {
 			environmentId: this.config.sourceEnvironmentId
 		});
 
-		let query = deliveryClient.itemsFeed().orderByDescending('system.last_modified');
+		if (config.limit && config.limit > this.deliveryItemsLimit) {
+			throw Error(
+				`Current limit for migration is set to '${this.deliveryItemsLimit}'. Your value is '${config.limit}'. Please use a smaller value.`
+			);
+		}
+
+		let query = deliveryClient
+			.items()
+			.depthParameter(0)
+			.orderByDescending('system.last_modified')
+			.limitParameter(
+				config.limit && config.limit < this.deliveryItemsLimit ? config.limit : this.deliveryItemsLimit
+			);
 
 		if (config.contentTypeCodenameToExport) {
 			query = query.type(config.contentTypeCodenameToExport);
 		}
 
-		if (config.limit) {
-			query = query.limitParameter(config.limit);
-		}
-
-		const itemsToExport = await query.toAllPromise();
+		const itemsToExport = await query.toPromise();
 
 		const exportItems: IKontentAiExportRequestItem[] = itemsToExport.data.items.map((m) => {
 			return {
