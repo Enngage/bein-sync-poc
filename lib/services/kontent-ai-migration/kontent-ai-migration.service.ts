@@ -86,7 +86,10 @@ export class KontentAiMigrationService {
 			record: logsRecord
 		});
 
-		await this.importDataAsync(exportData);
+		if (exportData.assets.length || exportData.items.length) {
+			// only import if there is stuff to import
+			await this.importDataAsync(exportData);
+		}
 
 		return {
 			logRecord: logsRecord,
