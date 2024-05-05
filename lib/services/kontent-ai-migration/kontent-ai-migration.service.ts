@@ -1,6 +1,7 @@
 import {
 	ExportToolkit,
 	IExportAdapterResult,
+	IKontentAiExportRequestItem,
 	ImportService,
 	ImportToolkit,
 	KontentAiExportAdapter,
@@ -9,6 +10,7 @@ import {
 import Colors from 'colors';
 import { IConsoleLog } from '../../models/common/common.models.js';
 import { BlobStorageService } from '../blob-storage/index.js';
+import { createDeliveryClient } from '@kontent-ai/delivery-sdk';
 
 export interface IKontentAiMigrationServiceConfig {
 	accountName: string;
@@ -70,17 +72,25 @@ export class KontentAiMigrationService {
 	}
 
 	private async getExportDataAsync(config: IKontentAiMigrateContentConfig): Promise<IExportAdapterResult> {
+
+		const deliveryClient = createDeliveryClient({
+			environmentId: this.config.sourceEnvironmentId,
+
+		});
+
+		const itemsToExport = await deliveryClient.itemsFeed().type(config.contentTypeCodenameToExport).toAllPromise();
+
+		const exportItems: IKontentAiExportRequestItem[] = itemsToExport.data.items.map(m => {
+			return {
+				itemCodename: m.system.codename,
+				languageCodename: m.system.language
+			}
+		})
+
 		const adapter = new KontentAiExportAdapter({
 			environmentId: this.config.sourceEnvironmentId,
 			managementApiKey: this.config.sourceMapiKey,
-			isPreview: false,
-			isSecure: false,
-			// customize what items are exported
-			customItemsExport: async (client) => {
-				// return only the items you want to export by applying filters, parameters etc..
-				const response = await client.items().type(config.contentTypeCodenameToExport).toAllPromise();
-				return response.data.items;
-			},
+			exportItems: exportItems,
 			log: this.migrationToolkitLog
 		});
 
