@@ -1,8 +1,7 @@
 import {
 	IExportAdapterResult,
 	IKontentAiExportRequestItem,
-	ImportToolkit,
-	KontentAiExportAdapter,
+	migrateAsync,
 	Log
 } from '@kontent-ai-consulting/migration-toolkit';
 import Colors from 'colors';
@@ -17,7 +16,6 @@ export interface IKontentAiMigrationServiceConfig {
 	sourceDeliveryKey: string;
 	sourceMapiKey: string;
 	targetEnvironmentId: string;
-	targetDeliveryKey: string;
 	targetMapiKey: string;
 	usePreview: boolean;
 	log: IConsoleLog;
@@ -54,25 +52,33 @@ export class KontentAiMigrationService {
 			log: this.config.log
 		});
 
-		const exportData = await this.getExportDataAsync(config);
+		const itemsToMigrate = await this.getItemsToMigrateAsync(config);
+
+		if (itemsToMigrate.length) {
+			await migrateAsync({
+				log: this.migrationToolkitLog,
+				sourceEnvironment: {
+					id: this.config.sourceEnvironmentId,
+					apiKey: this.config.sourceMapiKey,
+					items: itemsToMigrate
+				},
+				targetEnvironment: {
+					id: this.config.targetEnvironmentId,
+					apiKey: this.config.targetMapiKey,
+					skipFailedItems: false
+				}
+			});
+		}
 
 		const logsRecord: ILogsRecord = {
 			date: new Date(),
 			overview: {
-				migratedItemsCount: exportData.items.length,
-				migratedAssetsCount: exportData.assets.length
+				migratedItemsCount: itemsToMigrate.length
 			},
-			items: exportData.items.map((m) => {
+			items: itemsToMigrate.map((m) => {
 				return {
-					name: m.system.name,
-					codename: m.system.codename,
-					language: m.system.language
-				};
-			}),
-			assets: exportData.assets.map((m) => {
-				return {
-					codename: m.codename ?? 'n/a',
-					filename: m.filename
+					codename: m.itemCodename,
+					language: m.languageCodename
 				};
 			})
 		};
@@ -86,11 +92,6 @@ export class KontentAiMigrationService {
 			record: logsRecord
 		});
 
-		if (exportData.assets.length || exportData.items.length) {
-			// only import if there is stuff to import
-			await this.importDataAsync(exportData);
-		}
-
 		return {
 			logRecord: logsRecord,
 			overviewLogFileUrl: overviewLogFile.absoluteUrl,
@@ -98,23 +99,9 @@ export class KontentAiMigrationService {
 		};
 	}
 
-	private async importDataAsync(data: IExportAdapterResult): Promise<void> {
-		const importToolkit = new ImportToolkit({
-			log: this.migrationToolkitLog,
-			environmentId: this.config.targetEnvironmentId,
-			managementApiKey: this.config.targetMapiKey,
-			skipFailedItems: false,
-			sourceType: 'file',
-			canImport: {
-				asset: (item) => true,
-				contentItem: (item) => true
-			}
-		});
-
-		await importToolkit.importAsync(data);
-	}
-
-	private async getExportDataAsync(config: IKontentAiMigrateContentConfig): Promise<IExportAdapterResult> {
+	private async getItemsToMigrateAsync(
+		config: IKontentAiMigrateContentConfig
+	): Promise<IKontentAiExportRequestItem[]> {
 		const deliveryClient = createDeliveryClient({
 			environmentId: this.config.sourceEnvironmentId
 		});
@@ -146,15 +133,6 @@ export class KontentAiMigrationService {
 			};
 		});
 
-		const adapter = new KontentAiExportAdapter({
-			environmentId: this.config.sourceEnvironmentId,
-			managementApiKey: this.config.sourceMapiKey,
-			exportItems: exportItems,
-			log: this.migrationToolkitLog
-		});
-
-		const data = adapter.exportAsync();
-
-		return data;
+		return exportItems;
 	}
 }

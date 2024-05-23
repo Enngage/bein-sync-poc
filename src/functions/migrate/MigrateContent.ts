@@ -26,7 +26,6 @@ app.http('MigrateContent', {
 				sourceDeliveryKey: environmentHelper.getRequiredValue('KONTENT_AI_SOURCE_DELIVERY_KEY'),
 				sourceMapiKey: environmentHelper.getRequiredValue('KONTENT_AI_SOURCE_MAPI_KEY'),
 				targetEnvironmentId: environmentHelper.getRequiredValue('KONTENT_AI_TARGET_ENVIRONMENT_ID'),
-				targetDeliveryKey: environmentHelper.getRequiredValue('KONTENT_AI_TARGET_DELIVERY_KEY'),
 				targetMapiKey: environmentHelper.getRequiredValue('KONTENT_AI_TARGET_MAPI_KEY'),
 				usePreview: false,
 				// log

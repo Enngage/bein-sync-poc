@@ -16,10 +16,8 @@ export interface ILogsRecord {
 	date: Date;
 	overview: {
 		migratedItemsCount: number;
-		migratedAssetsCount: number;
 	};
-	items: { name: string; codename: string; language: string }[];
-	assets: { codename: string; filename: string }[];
+	items: { codename: string; language: string }[];
 }
 
 export type OverviewLogRecord = Omit<ILogsRecord, 'items' | 'assets'>;
