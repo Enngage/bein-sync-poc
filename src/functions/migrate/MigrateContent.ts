@@ -28,6 +28,7 @@ app.http('MigrateContent', {
 				targetEnvironmentId: environmentHelper.getRequiredValue('KONTENT_AI_TARGET_ENVIRONMENT_ID'),
 				targetMapiKey: environmentHelper.getRequiredValue('KONTENT_AI_TARGET_MAPI_KEY'),
 				usePreview: false,
+				useSecureApi: environmentHelper.getRequiredValue('KONTENT_AI_SOURCE_ENABLE_SECURE_API')?.toLowerCase() === 'true',
 				// log
 				log: consoleLog
 			});

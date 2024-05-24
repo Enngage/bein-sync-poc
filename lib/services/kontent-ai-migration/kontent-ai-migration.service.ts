@@ -18,6 +18,7 @@ export interface IKontentAiMigrationServiceConfig {
 	targetEnvironmentId: string;
 	targetMapiKey: string;
 	usePreview: boolean;
+	useSecureApi: boolean;
 	log: IConsoleLog;
 }
 
@@ -33,7 +34,7 @@ export interface IKontentAiMigrateContentConfig {
 }
 
 export class KontentAiMigrationService {
-	private readonly deliveryItemsLimit: number = 2000;
+	private readonly fetchItemsLimit: number = 50;
 	private readonly migrationToolkitLog: Log = {
 		console: (data) =>
 			this.config.log.information(`${Colors.yellow(`Migration Log: `)} ${Colors.white(data.message)}`)
@@ -53,6 +54,8 @@ export class KontentAiMigrationService {
 		});
 
 		const itemsToMigrate = await this.getItemsToMigrateAsync(config);
+
+		console.log(`Items to migrate: ${itemsToMigrate.length}`);
 
 		if (itemsToMigrate.length) {
 			await migrateAsync({
@@ -103,12 +106,16 @@ export class KontentAiMigrationService {
 		config: IKontentAiMigrateContentConfig
 	): Promise<IKontentAiExportRequestItem[]> {
 		const deliveryClient = createDeliveryClient({
-			environmentId: this.config.sourceEnvironmentId
+			environmentId: this.config.sourceEnvironmentId,
+			secureApiKey: this.config.sourceDeliveryKey,
+			defaultQueryConfig: {
+				useSecuredMode: this.config.useSecureApi
+			}
 		});
 
-		if (config.limit && config.limit > this.deliveryItemsLimit) {
+		if (config.limit && config.limit > this.fetchItemsLimit) {
 			throw Error(
-				`Current limit for migration is set to '${this.deliveryItemsLimit}'. Your value is '${config.limit}'. Please use a smaller value.`
+				`Current limit for migration is set to '${this.fetchItemsLimit}'. Your value is '${config.limit}'. Please use a smaller value.`
 			);
 		}
 
@@ -117,7 +124,7 @@ export class KontentAiMigrationService {
 			.depthParameter(0)
 			.orderByDescending('system.last_modified')
 			.limitParameter(
-				config.limit && config.limit < this.deliveryItemsLimit ? config.limit : this.deliveryItemsLimit
+				config.limit && config.limit < this.fetchItemsLimit ? config.limit : this.fetchItemsLimit
 			);
 
 		if (config.contentTypeCodenameToExport) {
