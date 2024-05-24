@@ -15,7 +15,13 @@ app.http('MigrateContent', {
 
 		return await executeHttpFunctionAsync(async () => {
 			const contentTypeToExport: string | undefined = request.query.get(contentTypeQueryParam) ?? undefined;
-			const limit: string | undefined = request.query.get(limitQueryParam) ?? undefined;
+			const limitRaw: string | undefined = request.query.get(limitQueryParam) ?? undefined;
+
+			const limit: number | undefined = limitRaw ? +limitRaw : undefined;
+
+			if (!limit) {
+				throw Error(`Please provide '${limitQueryParam}' parameter to url query.`);
+			}
 
 			const syncService = new KontentAiMigrationService({
 				// storage
