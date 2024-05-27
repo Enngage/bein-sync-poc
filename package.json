@@ -18,7 +18,7 @@
 		"@azure/functions": "4.5.0",
 		"@azure/storage-blob": "12.18.0",
 		"@kontent-ai/delivery-sdk": "14.9.0",
-		"@kontent-ai-consulting/migration-toolkit": "1.0.0-3",
+		"@kontent-ai-consulting/migration-toolkit": "1.0.0-4",
 		"axios": "1.7.2",
 		"@types/node": "20.12.12",
 		"typescript": "5.4.5"

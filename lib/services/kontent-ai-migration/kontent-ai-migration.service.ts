@@ -1,9 +1,4 @@
-import {
-	IExportAdapterResult,
-	IKontentAiExportRequestItem,
-	migrateAsync,
-	Log
-} from '@kontent-ai-consulting/migration-toolkit';
+import { IKontentAiExportRequestItem, migrateAsync, Log } from '@kontent-ai-consulting/migration-toolkit';
 import Colors from 'colors';
 import { IConsoleLog } from '../../models/common/common.models.js';
 import { BlobStorageService, ILogsRecord } from '../blob-storage/index.js';
@@ -123,9 +118,7 @@ export class KontentAiMigrationService {
 			.items()
 			.depthParameter(0)
 			.orderByDescending('system.last_modified')
-			.limitParameter(
-				config.limit && config.limit < this.fetchItemsLimit ? config.limit : this.fetchItemsLimit
-			);
+			.limitParameter(config.limit && config.limit < this.fetchItemsLimit ? config.limit : this.fetchItemsLimit);
 
 		if (config.contentTypeCodenameToExport) {
 			query = query.type(config.contentTypeCodenameToExport);
